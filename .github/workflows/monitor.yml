@@ -1,0 +1,49 @@
+name: Website Monitor Bot
+
+# 実行のタイミングを設定
+on:
+  schedule:
+    # 1日3回、日本時間の 9:00, 15:00, 21:00 に実行する場合
+    # (GitHub Actionsは世界標準時UTCなので、日本時間より9時間引いて設定します)
+    - cron: '0 0,6,12 * * *'
+  workflow_dispatch: # ボタンから手動で実行できるようにする設定
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # リポジトリにファイルを保存（Push）するための権限許可
+    permissions:
+      contents: write
+
+    steps:
+      # 1. GitHub上の最新のコードを取得
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Pythonを使えるようにセットアップ
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # 3. 必要なライブラリをインストール
+      - name: Install dependencies
+        run: |
+          pip install requests beautifulsoup4
+
+      # 4. メインプログラムの実行 (Secretsを環境変数として渡す)
+      - name: Run monitor script
+        env:
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+        run: python main.py
+
+      # 5. 更新があった場合、last_hash.txt をリポジトリに保存する
+      - name: Commit and Push if updated
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add last_hash.txt
+          # 変更がない場合はエラーにせず終了させる
+          git commit -m "Update last_hash" || exit 0
+          git push
